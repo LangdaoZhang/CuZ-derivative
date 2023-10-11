@@ -3,6 +3,13 @@
 #include"PSNR.h"
 #include"macro.h"
 
+// __global__ void testKernel(float* data,int nx,int ny,int nz){
+//     int n=nx*ny*nz;
+//     float maxval=-inf;
+//     for(int i=0;i<n;i++) maxval=max(maxval,data[i]);
+//     printf("+++%.12f\n",maxval);
+// }
+
 // device -> device 
 void derivatives(float* data,int nx,int ny,int nz,
                 float *&dx,float *&dy,float *&dz,
@@ -23,7 +30,7 @@ void derivatives(float* data,int nx,int ny,int nz,
     cudaMalloc(&dyz,n*sizeof(float));
     cudaMalloc(&dzx,n*sizeof(float));
     cudaMalloc(&gl,n*sizeof(float));
-    cudaMalloc(&lap,n&sizeof(float));
+    cudaMalloc(&lap,n*sizeof(float));
 
     dim3 blocksz=dim3(BLOCKSZX,BLOCKSZY,BLOCKSZZ);
     dim3 blocknum=dim3(nx/BLOCKSZX+(nx%BLOCKSZX>0),ny/BLOCKSZY+(ny%BLOCKSZY>0),nz/BLOCKSZZ+(nz%BLOCKSZZ>0));
@@ -49,7 +56,7 @@ std::vector<float> derivativesPSNR(float* host_f0,float* host_f1,int nx,int ny,i
 
     float *f0;
     cudaMalloc(&f0,n*sizeof(float));
-    cudaMemcpy(host_f0,f0,n*sizeof(float),cudaMemcpyHostToDevice);
+    cudaMemcpy(f0,host_f0,n*sizeof(float),cudaMemcpyHostToDevice);
 
     float *f0_dx,*f0_dy,*f0_dz;
     float *f0_dx2,*f0_dy2,*f0_dz2;
@@ -61,7 +68,7 @@ std::vector<float> derivativesPSNR(float* host_f0,float* host_f1,int nx,int ny,i
 
     float *f1;
     cudaMalloc(&f1,n*sizeof(float));
-    cudaMemcpy(host_f1,f1,n*sizeof(float),cudaMemcpyHostToDevice);
+    cudaMemcpy(f1,host_f1,n*sizeof(float),cudaMemcpyHostToDevice);
 
     float *f1_dx,*f1_dy,*f1_dz;
     float *f1_dx2,*f1_dy2,*f1_dz2;
@@ -102,5 +109,5 @@ std::vector<float> derivativesPSNR(float* host_f0,float* host_f1,int nx,int ny,i
     cudaFree(f1_dxy),cudaFree(f1_dyz),cudaFree(f1_dzx);
     cudaFree(f1_gl),cudaFree(f1_lap);
     
-    return move(vec);
+    return vec;
 }

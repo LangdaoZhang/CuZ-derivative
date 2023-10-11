@@ -75,5 +75,7 @@ signed main(){
     cout<<"Relative Error of s1 = "<<vec[10]<<endl;
     cout<<"Relative Error of s2 = "<<vec[11]<<endl;
 
+    free(f0),free(f1);
+
     return 0;
 }
