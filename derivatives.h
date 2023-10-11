@@ -1,7 +1,7 @@
 #include<cmath>
 #include"macro.h"
 
-__global__ void derivatives(float* data,float* dx,float* dy,float* dz,float* dx2,float* dy2,float* dz2,float* dxy,float* dyz,float* dzx,float* gl,float* lap,int nx,int ny,int nz){
+__global__ void derivativesKernel(float* data,float* dx,float* dy,float* dz,float* dx2,float* dy2,float* dz2,float* dxy,float* dyz,float* dzx,float* gl,float* lap,int nx,int ny,int nz){
 
     int x=blockIdx.x*blockDim.x+threadIdx.x;
     int y=blockIdx.y*blockDim.y+threadIdx.y;

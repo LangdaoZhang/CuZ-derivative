@@ -1,174 +1,106 @@
-#include<iostream>
-#include<iomanip>
-#include<fstream>
-#include<assert.h>
 #include"derivatives.h"
 #include"sobolev.h"
 #include"PSNR.h"
 #include"macro.h"
 
-#define __USE_READFILE 1
-
-using namespace std;
-
-template<typename Type>
-void readFile(const char *file, const size_t num, Type *data){
-    std::ifstream fin(file, std::ios::binary);
-    if (!fin) {
-        std::cout << " Error, Couldn't find the file: " << file << "\n";
-        exit(0);
-    }
-    fin.seekg(0, std::ios::end);
-    const size_t num_elements = fin.tellg() / sizeof(Type);
-    assert(num_elements == num && "File size is not equals to the input setting");
-    fin.seekg(0, std::ios::beg);
-    fin.read(reinterpret_cast<char *>(data), num_elements * sizeof(Type));
-    fin.close();
-}
-
-template<typename Type>
-void writeFile(const char *file, const size_t num_elements, Type *data){
-    std::ofstream fout(file, std::ios::binary);
-    fout.write(reinterpret_cast<const char *>(&data[0]), num_elements * sizeof(Type));
-    fout.close();
-}
-
-char f0_file_name[64],f1_file_name[64],buf[64];
-int nx,ny,nz,n;
-float *f0_host_data,*f0_device_data;
-float *f1_host_data,*f1_device_data;
-
-float *f0_device_dx,*f0_device_dy,*f0_device_dz;
-float *f0_device_dx2,*f0_device_dy2,*f0_device_dz2;
-float *f0_device_dxy,*f0_device_dyz,*f0_device_dzx;
-float *f0_device_gl,*f0_device_lap;
-
-float *f1_device_dx,*f1_device_dy,*f1_device_dz;
-float *f1_device_dx2,*f1_device_dy2,*f1_device_dz2;
-float *f1_device_dxy,*f1_device_dyz,*f1_device_dzx;
-float *f1_device_gl,*f1_device_lap;
-
-signed main(){
-
-    printf("please input the original file name:\n");
-
-    scanf("%s",f0_file_name);
-
-    printf("please input the unzipped file name:\n");
-
-    scanf("%s",f1_file_name);
-
-    printf("please input the size like [nx] [ny] [nz]:\n");
-
-    scanf("%d %d %d",&nx,&ny,&nz);
-
-    n=nx*ny*nz;
-
-    f0_host_data=(float*)malloc(n*sizeof(float));
-    f1_host_data=(float*)malloc(n*sizeof(float));
-
-    cudaMalloc(&f0_device_data,n*sizeof(float));
-    cudaMalloc(&f0_device_dx,n*sizeof(float));
-    cudaMalloc(&f0_device_dy,n*sizeof(float));
-    cudaMalloc(&f0_device_dz,n*sizeof(float));
-    cudaMalloc(&f0_device_dx2,n*sizeof(float));
-    cudaMalloc(&f0_device_dy2,n*sizeof(float));
-    cudaMalloc(&f0_device_dz2,n*sizeof(float));
-    cudaMalloc(&f0_device_dxy,n*sizeof(float));
-    cudaMalloc(&f0_device_dyz,n*sizeof(float));
-    cudaMalloc(&f0_device_dzx,n*sizeof(float));
-    cudaMalloc(&f0_device_gl,n*sizeof(float));
-    cudaMalloc(&f0_device_lap,n*sizeof(float));
-
-    cudaMalloc(&f1_device_data,n*sizeof(float));
-    cudaMalloc(&f1_device_dx,n*sizeof(float));
-    cudaMalloc(&f1_device_dy,n*sizeof(float));
-    cudaMalloc(&f1_device_dz,n*sizeof(float));
-    cudaMalloc(&f1_device_dx2,n*sizeof(float));
-    cudaMalloc(&f1_device_dy2,n*sizeof(float));
-    cudaMalloc(&f1_device_dz2,n*sizeof(float));
-    cudaMalloc(&f1_device_dxy,n*sizeof(float));
-    cudaMalloc(&f1_device_dyz,n*sizeof(float));
-    cudaMalloc(&f1_device_dzx,n*sizeof(float));
-    cudaMalloc(&f1_device_gl,n*sizeof(float));
-    cudaMalloc(&f1_device_lap,n*sizeof(float));
-
-    if(__USE_READFILE){
-
-        readFile<float>(f0_file_name,n,f0_host_data);
-        readFile<float>(f1_file_name,n,f1_host_data);
-    }
-    else{
-
-    }
+// device -> device 
+void derivatives(float* data,int nx,int ny,int nz,
+                float *&dx,float *&dy,float *&dz,
+                float *&dx2,float *&dy2,float *&dz2,
+                float *&dxy,float *&dyz,float *&dzx,
+                float *&gl,float *&lap
+                ){
     
-    cudaMemcpy(f0_device_data,f0_host_data,n*sizeof(float),cudaMemcpyHostToDevice);
-    cudaMemcpy(f1_device_data,f1_host_data,n*sizeof(float),cudaMemcpyHostToDevice);
+    int n=nx*ny*nz;
+
+    cudaMalloc(&dx,n*sizeof(float));
+    cudaMalloc(&dy,n*sizeof(float));
+    cudaMalloc(&dz,n*sizeof(float));
+    cudaMalloc(&dx2,n*sizeof(float));
+    cudaMalloc(&dy2,n*sizeof(float));
+    cudaMalloc(&dz2,n*sizeof(float));
+    cudaMalloc(&dxy,n*sizeof(float));
+    cudaMalloc(&dyz,n*sizeof(float));
+    cudaMalloc(&dzx,n*sizeof(float));
+    cudaMalloc(&gl,n*sizeof(float));
+    cudaMalloc(&lap,n&sizeof(float));
 
     dim3 blocksz=dim3(BLOCKSZX,BLOCKSZY,BLOCKSZZ);
     dim3 blocknum=dim3(nx/BLOCKSZX+(nx%BLOCKSZX>0),ny/BLOCKSZY+(ny%BLOCKSZY>0),nz/BLOCKSZZ+(nz%BLOCKSZZ>0));
 
-    derivatives<<<blocknum,blocksz>>>(f0_device_data,f0_device_dx,f0_device_dy,f0_device_dz,f0_device_dx2,f0_device_dy2,f0_device_dz2,f0_device_dxy,f0_device_dyz,f0_device_dzx,f0_device_gl,f0_device_lap,nx,ny,nz);
-    derivatives<<<blocknum,blocksz>>>(f1_device_data,f1_device_dx,f1_device_dy,f1_device_dz,f1_device_dx2,f1_device_dy2,f1_device_dz2,f1_device_dxy,f1_device_dyz,f1_device_dzx,f1_device_gl,f1_device_lap,nx,ny,nz);
+    derivativesKernel<<<blocknum,blocksz>>>(data,dx,dy,dz,dx2,dy2,dz2,dxy,dyz,dzx,gl,lap,nx,ny,nz);
 
     cudaDeviceSynchronize();
+}
 
-    //then calculate each PSNR, then output
+// host -> device -> host
 
-    cout<<fixed<<setprecision(2);
+/*
+0: PSNR of data
+1,2,3: PSNR of dx,dy,dz
+4,5,6: PSNR of dx2,dy2,dz2
+7,8: PSNR of gradient length, laplacian
+9,10,11: relative error of s0,s1,s2
+*/
 
-    cout<<"PSNR of data = "<<findPSNR(f0_device_data,f1_device_data,nx,ny,nz)<<endl;
-    cout<<"PSNR of dx = "<<findPSNR(f0_device_dx,f1_device_dx,nx,ny,nz)<<endl;
-    cout<<"PSNR of dy = "<<findPSNR(f0_device_dy,f1_device_dy,nx,ny,nz)<<endl;
-    cout<<"PSNR of dz = "<<findPSNR(f0_device_dz,f1_device_dz,nx,ny,nz)<<endl;
-    cout<<"PSNR of dx2 = "<<findPSNR(f0_device_dx2,f1_device_dx2,nx,ny,nz)<<endl;
-    cout<<"PSNR of dy2 = "<<findPSNR(f0_device_dy2,f1_device_dy2,nx,ny,nz)<<endl;
-    cout<<"PSNR of dz2 = "<<findPSNR(f0_device_dz2,f1_device_dz2,nx,ny,nz)<<endl;
-    cout<<"PSNR of gradient length = "<<findPSNR(f0_device_gl,f1_device_gl,nx,ny,nz)<<endl;
-    cout<<"PSNR of laplacian = "<<findPSNR(f0_device_lap,f1_device_lap,nx,ny,nz)<<endl;
+std::vector<float> derivativesPSNR(float* host_f0,float* host_f1,int nx,int ny,int nz){
+
+    int n=nx*ny*nz;
+
+    float *f0;
+    cudaMalloc(&f0,n*sizeof(float));
+    cudaMemcpy(host_f0,f0,n*sizeof(float),cudaMemcpyHostToDevice);
+
+    float *f0_dx,*f0_dy,*f0_dz;
+    float *f0_dx2,*f0_dy2,*f0_dz2;
+    float *f0_dxy,*f0_dyz,*f0_dzx;
+    float *f0_gl,*f0_lap;
+
+    derivatives(f0,nx,ny,nz,f0_dx,f0_dy,f0_dz,f0_dx2,f0_dy2,f0_dz2,f0_dxy,f0_dyz,f0_dzx,f0_gl,f0_lap);
+    std::vector<float> f0_sobolev=sobolev(f0,f0_dx,f0_dy,f0_dz,f0_dx2,f0_dy2,f0_dz2,f0_dxy,f0_dyz,f0_dzx,nx,ny,nz);
+
+    float *f1;
+    cudaMalloc(&f1,n*sizeof(float));
+    cudaMemcpy(host_f1,f1,n*sizeof(float),cudaMemcpyHostToDevice);
+
+    float *f1_dx,*f1_dy,*f1_dz;
+    float *f1_dx2,*f1_dy2,*f1_dz2;
+    float *f1_dxy,*f1_dyz,*f1_dzx;
+    float *f1_gl,*f1_lap;
+
+    derivatives(f1,nx,ny,nz,f1_dx,f1_dy,f1_dz,f1_dx2,f1_dy2,f1_dz2,f1_dxy,f1_dyz,f1_dzx,f1_gl,f1_lap);
+    std::vector<float> f1_sobolev=sobolev(f1,f1_dx,f1_dy,f1_dz,f1_dx2,f1_dy2,f1_dz2,f1_dxy,f1_dyz,f1_dzx,nx,ny,nz);
+
+    std::vector<float> vec(12);
+
+    vec[0]=findPSNR(f0,f1,nx,ny,nz);
+
+    vec[1]=findPSNR(f0_dx,f1_dx,nx,ny,nz);
+    vec[2]=findPSNR(f0_dy,f1_dy,nx,ny,nz);
+    vec[3]=findPSNR(f0_dz,f1_dz,nx,ny,nz);
+
+    vec[4]=findPSNR(f0_dx2,f1_dx2,nx,ny,nz);
+    vec[5]=findPSNR(f0_dy2,f1_dy2,nx,ny,nz);
+    vec[6]=findPSNR(f0_dz2,f1_dz2,nx,ny,nz);
+
+    vec[7]=findPSNR(f0_gl,f1_gl,nx,ny,nz);
+    vec[8]=findPSNR(f0_lap,f1_lap,nx,ny,nz);
+
+    vec[9]=std::abs(f0_sobolev[0]-f1_sobolev[0])/f0_sobolev[0];
+    vec[10]=std::abs(f0_sobolev[1]-f1_sobolev[1])/f0_sobolev[1];
+    vec[11]=std::abs(f0_sobolev[2]-f1_sobolev[2])/f0_sobolev[2];
+
+    cudaFree(f0);
+    cudaFree(f0_dx),cudaFree(f0_dy),cudaFree(f0_dz);
+    cudaFree(f0_dx2),cudaFree(f0_dy2),cudaFree(f0_dz2);
+    cudaFree(f0_dxy),cudaFree(f0_dyz),cudaFree(f0_dzx);
+    cudaFree(f0_gl),cudaFree(f0_lap);
+
+    cudaFree(f1);
+    cudaFree(f1_dx),cudaFree(f1_dy),cudaFree(f1_dz);
+    cudaFree(f1_dx2),cudaFree(f1_dy2),cudaFree(f1_dz2);
+    cudaFree(f1_dxy),cudaFree(f1_dyz),cudaFree(f1_dzx);
+    cudaFree(f1_gl),cudaFree(f1_lap);
     
-    vector<float> f0_s=sobolev(f0_device_data,f0_device_dx,f0_device_dy,f0_device_dz,f0_device_dx2,f0_device_dy2,f0_device_dz2,f0_device_dxy,f0_device_dyz,f0_device_dzx,nx,ny,nz);
-    vector<float> f1_s=sobolev(f1_device_data,f1_device_dx,f1_device_dy,f1_device_dz,f1_device_dx2,f1_device_dy2,f1_device_dz2,f1_device_dxy,f1_device_dyz,f1_device_dzx,nx,ny,nz);
-
-    cout<<setprecision(12);
-    cout<<"s0="<<"{"<<f0_s[0]<<","<<f1_s[0]<<"}"<<endl;
-    cout<<"s1="<<"{"<<f0_s[1]<<","<<f1_s[1]<<"}"<<endl;
-    cout<<"s2="<<"{"<<f0_s[2]<<","<<f1_s[2]<<"}"<<endl;
-
-    cout<<scientific<<setprecision(2);
-    cout<<"Relative Error of s0 = "<<abs(f0_s[0]-f1_s[0])/f0_s[0]<<endl;
-    cout<<"Relative Error of s1 = "<<abs(f0_s[1]-f1_s[1])/f0_s[1]<<endl;
-    cout<<"Relative Error of s2 = "<<abs(f0_s[2]-f1_s[2])/f0_s[2]<<endl;
-
-    free(f0_host_data);
-    free(f1_host_data);
-
-    cudaFree(f0_device_data);
-    cudaFree(f0_device_dx);
-    cudaFree(f0_device_dy);
-    cudaFree(f0_device_dz);
-    cudaFree(f0_device_dx2);
-    cudaFree(f0_device_dy2);
-    cudaFree(f0_device_dz2);
-    cudaFree(f0_device_dxy);
-    cudaFree(f0_device_dyz);
-    cudaFree(f0_device_dzx);
-    cudaFree(f0_device_gl);
-    cudaFree(f0_device_lap);
-
-    cudaFree(f1_device_data);
-    cudaFree(f1_device_dx);
-    cudaFree(f1_device_dy);
-    cudaFree(f1_device_dz);
-    cudaFree(f1_device_dx2);
-    cudaFree(f1_device_dy2);
-    cudaFree(f1_device_dz2);
-    cudaFree(f1_device_dxy);
-    cudaFree(f1_device_dyz);
-    cudaFree(f1_device_dzx);
-    cudaFree(f1_device_gl);
-    cudaFree(f1_device_lap);
-
-end:
-    return 0;
+    return move(vec);
 }
